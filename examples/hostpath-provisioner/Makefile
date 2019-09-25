@@ -14,13 +14,16 @@
 
 IMAGE?=hostpath-provisioner
 
-all: dep hostpath-provisioner image
+all: dep build image
 
 dep:
 	-dep init
 	dep ensure
 
-hostpath-provisioner:
+build:
+	GOOS=linux CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o hostpath-provisioner .
+
+local:
 	CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o hostpath-provisioner .
 
 image: hostpath-provisioner

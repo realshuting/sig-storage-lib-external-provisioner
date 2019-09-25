@@ -25,7 +25,7 @@ import (
 
 	"sigs.k8s.io/sig-storage-lib-external-provisioner/controller"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -34,12 +34,26 @@ import (
 )
 
 const (
-	provisionerName = "example.com/hostpath"
+	provisionerName = "nirmata.io/hostpath"
+
+	// following names are used to identify service via label
+	// i.e. app=zk
+	zk      = "zk"
+	mongodb = "mongodb"
+	es      = "es"
+	kafka   = "kafka"
 )
 
+type pvDirs struct {
+	// *Dir is the directory to create PV-backing directories in
+	zkDir      string
+	esDir      string
+	mongodbDir string
+	kafkaDir   string
+}
+
 type hostPathProvisioner struct {
-	// The directory to create PV-backing directories in
-	pvDir string
+	pvDirs
 
 	// Identity of this hostPathProvisioner, set to node's name. Used to identify
 	// "this" provisioner's PVs.
@@ -52,8 +66,24 @@ func NewHostPathProvisioner() controller.Provisioner {
 	if nodeName == "" {
 		klog.Fatal("env variable NODE_NAME must be set so that this provisioner can identify itself")
 	}
+
+	dirs := []string{"ZK_PV_DIR", "MONGODB_PV_DIR", "ES_PV_DIR", "KAFKA_PV_DIR"}
+	dirsCache := make(map[string]string)
+	for _, dir := range dirs {
+		val := os.Getenv(dir)
+		if val == "" {
+			klog.Fatalf("env variable %s must be set so that this provisioner knows where to place its data", val)
+		}
+		dirsCache[dir] = val
+	}
+
 	return &hostPathProvisioner{
-		pvDir:    "/tmp/hostpath-provisioner",
+		pvDirs: pvDirs{
+			zkDir:      dirsCache["ZK_PV_DIR"],
+			esDir:      dirsCache["ES_PV_DIR"],
+			mongodbDir: dirsCache["MONGODB_PV_DIR"],
+			kafkaDir:   dirsCache["KAFKA_PV_DIR"],
+		},
 		identity: nodeName,
 	}
 }
@@ -62,7 +92,23 @@ var _ controller.Provisioner = &hostPathProvisioner{}
 
 // Provision creates a storage asset and returns a PV object representing it.
 func (p *hostPathProvisioner) Provision(options controller.ProvisionOptions) (*v1.PersistentVolume, error) {
-	path := path.Join(p.pvDir, options.PVName)
+	var pvDir string
+	labels := options.PVC.GetLabels()
+
+	switch labels["app"] {
+	case zk:
+		pvDir = p.zkDir
+	case mongodb:
+		pvDir = p.mongodbDir
+	case es:
+		pvDir = p.esDir
+	case kafka:
+		pvDir = p.kafkaDir
+	default:
+		pvDir = "/tmp/nirmata-hostpath-provisioner"
+	}
+
+	path := path.Join(pvDir, options.PVName)
 
 	if err := os.MkdirAll(path, 0777); err != nil {
 		return nil, err
@@ -73,6 +119,7 @@ func (p *hostPathProvisioner) Provision(options controller.ProvisionOptions) (*v
 			Name: options.PVName,
 			Annotations: map[string]string{
 				"hostPathProvisionerIdentity": p.identity,
+				"hostpath":                    path,
 			},
 		},
 		Spec: v1.PersistentVolumeSpec{
@@ -89,6 +136,8 @@ func (p *hostPathProvisioner) Provision(options controller.ProvisionOptions) (*v
 		},
 	}
 
+	klog.Infof("persistent volume %s is provisioned at %s\n", pv.GetName(), path)
+
 	return pv, nil
 }
 
@@ -103,7 +152,11 @@ func (p *hostPathProvisioner) Delete(volume *v1.PersistentVolume) error {
 		return &controller.IgnoredError{Reason: "identity annotation on PV does not match ours"}
 	}
 
-	path := path.Join(p.pvDir, volume.Name)
+	path, ok := volume.Annotations["hostpath"]
+	if !ok {
+		return errors.New("hostpath annotation not found on PV")
+	}
+
 	if err := os.RemoveAll(path); err != nil {
 		return err
 	}
