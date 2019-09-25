@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: nirmata-hostpath-provisioner
-        image: registry-v2.nirmata.io/nirmata/hostpath-prtovisioner:test
+        image: registry-v2.nirmata.io/nirmata/hostpath-provisioner:test
         imagePullPolicy: "IfNotPresent"
         env:
         - name: ZK_PV_DIR

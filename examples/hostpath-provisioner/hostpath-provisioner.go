@@ -108,7 +108,7 @@ func (p *hostPathProvisioner) Provision(options controller.ProvisionOptions) (*v
 		pvDir = "/tmp/nirmata-hostpath-provisioner"
 	}
 
-	path := path.Join(pvDir, options.PVName)
+	path := path.Join(pvDir, options.PVC.Namespace+"-"+options.PVC.Name+"-"+options.PVName)
 
 	if err := os.MkdirAll(path, 0777); err != nil {
 		return nil, err
