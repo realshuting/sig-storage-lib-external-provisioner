@@ -110,7 +110,7 @@ func (p *hostPathProvisioner) Provision(options controller.ProvisionOptions) (*v
 
 	path := path.Join(pvDir, options.PVC.Namespace+"-"+options.PVC.Name+"-"+options.PVName)
 
-	if err := os.MkdirAll(path, 0777); err != nil {
+	if err := os.MkdirAll(path, 0755); err != nil {
 		return nil, err
 	}
 
