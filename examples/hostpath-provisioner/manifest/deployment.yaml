@@ -20,6 +20,8 @@ spec:
         image: registry-v2.nirmata.io/nirmata/hostpath-provisioner:test
         imagePullPolicy: "IfNotPresent"
         env:
+        - name: LEADER_ELECTION
+          value: flase
         - name: ZK_PV_DIR
           value: /var/nirmata/zk
         - name: MONGODB_PV_DIR
