@@ -68,8 +68,8 @@ func NewHostPathProvisioner() controller.Provisioner {
 	dirsCache := make(map[string]string)
 	for _, dir := range dirs {
 		val := os.Getenv(dir)
-		if val == "" {
-			klog.Fatalf("env variable %s must be set so that this provisioner knows where to place its data", val)
+		if val == "" && dir != "ES_PV_DIR" {
+			klog.Fatalf("env variable %s must be set so that this provisioner knows where to place its data", dir)
 		}
 		dirsCache[dir] = val
 	}
@@ -77,7 +77,6 @@ func NewHostPathProvisioner() controller.Provisioner {
 	return &hostPathProvisioner{
 		pvDirs: pvDirs{
 			zkDir:      dirsCache["ZK_PV_DIR"],
-			esDir:      dirsCache["ES_PV_DIR"],
 			mongodbDir: dirsCache["MONGODB_PV_DIR"],
 			kafkaDir:   dirsCache["KAFKA_PV_DIR"],
 		},

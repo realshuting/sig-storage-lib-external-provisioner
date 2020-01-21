@@ -26,7 +26,7 @@ build:
 local:
 	CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o hostpath-provisioner .
 
-image: hostpath-provisioner
+image: build
 	docker build -t $(IMAGE) -f Dockerfile.scratch .
 
 clean:
